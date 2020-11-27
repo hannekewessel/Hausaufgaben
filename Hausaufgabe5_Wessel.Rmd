@@ -1,0 +1,60 @@
+---
+title: "Data Science 5. Hausaufgabe"
+output:
+  html_document:
+    df_print: paged
+---
+Versuchen Sie die Leser aus dem Buch-Datenset zu clustern: Welche Bücher gehören in welches Cluster?
+```{r}
+library(tidyverse)
+library(cluster)
+library(caret)
+```
+
+```{r}
+all <- read_csv("all.csv")
+col_types = cols(`User-ID` = col_number())
+```
+Die Bücher werden zu den entsprechenden Usern zusammengruppiert
+```{r}
+users_books <- all %>%
+  group_by(`Book-Title`) %>%
+  mutate(no_of_books = n()) %>%
+  filter(no_of_books > 49) %>%
+  filter(`Book-Rating` > 8) %>%
+  select(`User-ID`, `Book-Title`)
+```
+
+Die Titel der Bücher müssen für die weitere Berechnung als Zahlen dargestellt werden
+```{r}
+users_numeric <- as.numeric(factor(users_books$`Book-Title`))
+```
+
+```{r}
+user.scaled <- as.data.frame(scale(users_numeric))
+```
+
+Welche Menge an Clustern ist am geeignetsten?
+```{r}
+wss <- (nrow(user.scaled)-1)*sum(apply(user.scaled,2,var))
+  for (i in 2:10) wss[i] <- sum(kmeans(user.scaled,
+                                       centers=i)$withinss)
+plot(1:10, wss, type="b", xlab="Number of Clusters",
+     ylab="Within groups sum of squares")
+```
+
+Cluster Dendrogram
+```{r}
+user.dist <- dist(user.scaled, method="euclidean")
+user.hc <- hclust(user.dist, method = "ward.D2")
+plot(user.hc)
+groups <- cutree(user.hc, k=3) 
+rect.hclust(user.hc, k=3, border="red")
+```
+Clustern der User
+```{r}
+users_books %>%
+  mutate(cluster = groups) %>%
+  left_join(all) %>%
+  select(cluster,`User-ID`)
+```
